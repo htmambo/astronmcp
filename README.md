@@ -67,7 +67,7 @@ claude mcp add astron -s user --transport stdio -- uv run --python 3.12 astronmc
 claude mcp add astron -s user --transport stdio -- uvx --from git+https://github.com/htmambo/astronmcp.git astronmcp
 ```
 
-> 注意：方式 B 需要你已经在 Claude Code 启动环境中设置了 `SPARK_API_PASSWORD` 等环境变量。
+> 注意：方式 B 需要你在 Claude Code 配置中注入环境变量（见下文「配置 API Key」），或者从已设置好环境变量的 Shell 启动 Claude Code。
 
 验证：
 
@@ -79,7 +79,63 @@ claude mcp list
 
 ---
 
-## 三、工具说明
+## 三、配置 API Key
+
+MCP Server 作为 Claude Code 的子进程运行，需要从环境变量读取密钥。`claude mcp add` 不能直接带 `--env`，推荐通过 `~/.claude/settings.json` 注入：
+
+```json
+{
+  "mcpServers": {
+    "astron": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/astronmcp.git",
+        "astronmcp"
+      ],
+      "env": {
+        "SPARK_MODE": "coding",
+        "SPARK_API_PASSWORD": "your-coding-plan-api-key"
+      }
+    }
+  }
+}
+```
+
+如果你用的是本地克隆的方式 A，配置长这样：
+
+```json
+{
+  "mcpServers": {
+    "astron": {
+      "command": "uv",
+      "args": ["run", "--python", "3.12", "astronmcp"],
+      "env": {
+        "SPARK_MODE": "coding",
+        "SPARK_API_PASSWORD": "your-coding-plan-api-key"
+      }
+    }
+  }
+}
+```
+
+> 修改配置后，重启 Claude Code 或运行 `claude mcp list` 刷新。
+
+### 替代方案：从 Shell 启动
+
+如果你用的是 Claude Code CLI，也可以在启动它的 Shell 中导出环境变量：
+
+```bash
+export SPARK_MODE=coding
+export SPARK_API_PASSWORD=your-coding-plan-api-key
+claude
+```
+
+但这种方式对桌面版 Claude 无效，建议优先使用 `settings.json`。
+
+---
+
+## 四、工具说明
 
 ### `spark` — 通用多轮对话
 
@@ -126,7 +182,7 @@ claude mcp list
 
 ---
 
-## 四、环境变量完整列表
+## 五、环境变量完整列表
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
@@ -146,7 +202,7 @@ claude mcp list
 
 ---
 
-## 五、在 Claude Code 提示词中推荐使用
+## 六、在 Claude Code 提示词中推荐使用
 
 在 `~/.claude/CLAUDE.md` 中加入类似内容，可让 Claude Code 在编码流程中主动调用审查工具：
 
@@ -161,7 +217,7 @@ claude mcp list
 
 ---
 
-## 六、常见问题
+## 七、常见问题
 
 **Q: Coding Plan 返回 401 怎么办？**
 
@@ -179,6 +235,6 @@ Coding Plan 有 5 小时/周/月的请求次数限制，高峰期也可能触发
 
 ---
 
-## 七、许可证
+## 八、许可证
 
 MIT
