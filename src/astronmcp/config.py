@@ -1,27 +1,24 @@
-"""Configuration and subscription detection for iFlytek Spark / Coding Plan."""
+"""Configuration and provider detection for Astron MCP."""
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 
-
-# OpenAI-compatible endpoints for different iFlytek subscription types.
-CODING_PLAN_API_URL = "https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions"
-SPARK_OPEN_API_URL = "https://spark-api-open.xf-yun.com/v1/chat/completions"
+from astronmcp.providers import ProviderProfile, get_provider, resolve_provider_name
 
 
 @dataclass(frozen=True)
 class Settings:
     """Runtime configuration parsed from environment variables."""
 
-    mode: str  # "http" (generic Spark) or "websocket" (native Spark) or "coding" (Coding Plan)
-    api_url: str  # HTTP endpoint (full /chat/completions URL)
-    api_password: str  # HTTP Bearer token (APIPassword / API key)
+    provider: str
+    mode: str  # "http" or "websocket"
+    api_url: str  # HTTP endpoint (full /chat/completions URL) or WS URL
+    api_password: str  # HTTP Bearer token / API key
     app_id: str  # WebSocket app id
-    api_key: str  # WebSocket API key
+    api_key: str  # WebSocket API key (signature)
     api_secret: str  # WebSocket API secret
-    ws_url: str  # WebSocket endpoint
     default_model: str
     timeout_seconds: float
     max_context_chars: int
@@ -29,66 +26,71 @@ class Settings:
     max_tokens: int
 
 
-def _env(key: str, default: str = "") -> str:
-    return os.environ.get(key, default)
+def _env(keys: str | list[str], default: str = "") -> str:
+    """Return the first non-empty value among the given env var names."""
+    if isinstance(keys, str):
+        keys = [keys]
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            return value
+    return default
 
 
 def load_settings() -> Settings:
     """Load settings from environment variables."""
-    mode = _env("SPARK_MODE", "coding").lower().strip()
-    if mode not in {"http", "websocket", "coding"}:
-        raise ValueError(
-            f"SPARK_MODE must be 'coding', 'http' or 'websocket', got '{mode}'"
-        )
+    provider_name = resolve_provider_name()
+    profile = get_provider(provider_name)
 
-    api_password = _env("SPARK_API_PASSWORD") or _env("SPARK_API_KEY") or ""
-    ws_url = _env(
-        "SPARK_WS_URL",
-        "wss://spark-api.xf-yun.com/v4.0/chat",
+    # Generic tunables, with legacy SPARK_* fallbacks for backward compatibility.
+    timeout_seconds = float(_env(["MCP_TIMEOUT_SECONDS", "SPARK_TIMEOUT_SECONDS"], "120"))
+    max_context_chars = int(
+        _env(
+            ["MCP_MAX_CONTEXT_CHARS", "SPARK_MAX_CONTEXT_CHARS"],
+            str(profile.default_max_context_chars),
+        )
+    )
+    max_messages = int(_env(["MCP_MAX_MESSAGES", "SPARK_MAX_MESSAGES"], "40"))
+    max_tokens = int(
+        _env(["MCP_MAX_TOKENS", "SPARK_MAX_TOKENS"], str(profile.default_max_tokens))
     )
 
-    if mode == "coding":
-        default_api_url = _env("SPARK_API_URL", CODING_PLAN_API_URL)
-        default_model = _env("SPARK_DEFAULT_MODEL", "astron-code-latest")
-        default_max_context = "96000"
-        default_max_tokens = "8192"
-    elif mode == "http":
-        default_api_url = _env("SPARK_API_URL", SPARK_OPEN_API_URL)
-        default_model = _env("SPARK_DEFAULT_MODEL", "4.0Ultra")
-        default_max_context = "24000"
-        default_max_tokens = "4096"
-    else:  # websocket
-        default_api_url = ""
-        default_model = _env("SPARK_DEFAULT_MODEL", "4.0Ultra")
-        default_max_context = "24000"
-        default_max_tokens = "4096"
+    api_url = _env(profile.api_url_env_vars, profile.default_api_url)
+    default_model = _env(profile.model_env_vars, profile.default_model)
+    api_password = _env(profile.api_key_env_vars, "")
 
     return Settings(
-        mode=mode,
-        api_url=default_api_url,
+        provider=provider_name,
+        mode=profile.mode,
+        api_url=api_url,
         api_password=api_password,
         app_id=_env("SPARK_APP_ID", ""),
         api_key=_env("SPARK_API_KEY", ""),
         api_secret=_env("SPARK_API_SECRET", ""),
-        ws_url=ws_url,
         default_model=default_model,
-        timeout_seconds=float(_env("SPARK_TIMEOUT_SECONDS", "120")),
-        max_context_chars=int(_env("SPARK_MAX_CONTEXT_CHARS", default_max_context)),
-        max_messages=int(_env("SPARK_MAX_MESSAGES", "40")),
-        max_tokens=int(_env("SPARK_MAX_TOKENS", default_max_tokens)),
+        timeout_seconds=timeout_seconds,
+        max_context_chars=max_context_chars,
+        max_messages=max_messages,
+        max_tokens=max_tokens,
     )
 
 
 def validate_settings(settings: Settings) -> None:
-    """Raise a clear error if the selected subscription mode is mis-configured."""
-    if settings.mode in {"http", "coding"}:
+    """Raise a clear error if the selected provider is mis-configured."""
+    profile = get_provider(settings.provider)
+
+    if profile.mode == "http":
         if not settings.api_password:
             raise RuntimeError(
-                f"{settings.mode.upper()} mode requires SPARK_API_PASSWORD (or SPARK_API_KEY) to be set."
+                f"Provider '{settings.provider}' requires one of: "
+                + ", ".join(profile.api_key_env_vars)
             )
         if not settings.api_url:
-            raise RuntimeError(f"{settings.mode.upper()} mode requires SPARK_API_URL to be set.")
-    elif settings.mode == "websocket":
+            raise RuntimeError(
+                f"Provider '{settings.provider}' requires one of: "
+                + ", ".join(profile.api_url_env_vars)
+            )
+    elif profile.mode == "websocket":
         missing = [
             name
             for name, value in {
@@ -100,5 +102,5 @@ def validate_settings(settings: Settings) -> None:
         ]
         if missing:
             raise RuntimeError(
-                "WebSocket mode requires all of: " + ", ".join(missing)
+                "WebSocket provider requires all of: " + ", ".join(missing)
             )

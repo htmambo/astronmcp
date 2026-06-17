@@ -140,8 +140,8 @@ class WebSocketSparkClient(SparkClient):
             ) from exc
 
     def _ws_url(self, model: str) -> str:
-        if self.settings.ws_url:
-            return self.settings.ws_url
+        if self.settings.api_url:
+            return self.settings.api_url
         return self.DEFAULT_WS_URLS.get(model, "wss://spark-api.xf-yun.com/v4.0/chat")
 
     def _build_auth_url(self, url: str) -> str:
