@@ -14,7 +14,7 @@ Coding Bridge MCP 通过统一的 OpenAI 兼容 HTTP 客户端接入多个厂商
 |----------|------|------|----------|----------|
 | **xfyun-coding**（默认） | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions` | `astron-code-latest` |
 | **xfyun-http** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://spark-api-open.xf-yun.com/v1/chat/completions` | `4.0Ultra` |
-| **xfyun-websocket** | 原生 WebSocket | `APP_ID` + `API_KEY`（签名）+ `API_SECRET` | `wss://spark-api.xf-yun.com/v4.0/chat` | `4.0Ultra` |
+| **xfyun-websocket** | 原生 WebSocket | `SPARK_APP_ID` + `SPARK_API_KEY`（签名）+ `SPARK_API_SECRET` | `wss://spark-api.xf-yun.com/v4.0/chat` | `4.0Ultra` |
 | **volcengine-coding** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions` | `ark-code-latest` |
 
 > **注意**：Coding Plan 类套餐（讯飞、火山）的 API Key **仅限在 AI 编程工具交互场景中使用**，禁止用于自动化脚本、批量任务或自建后端。
@@ -30,16 +30,16 @@ API_KEY=your-xfyun-key
 PROVIDER=volcengine-coding
 API_KEY=your-volcano-key
 
-# 讯飞 WebSocket（API_KEY 复用为签名 key，APP_ID/API_SECRET 仍需单独提供）
+# 讯飞 WebSocket（推荐显式设置 SPARK_API_KEY；若留空则回退到上方 API_KEY 作为签名 key，但 APP_ID/SECRET 必须单独提供）
 PROVIDER=xfyun-websocket
-API_KEY=your-xfyun-api-key
+SPARK_API_KEY=your-xfyun-api-key
 SPARK_APP_ID=your-app-id
 SPARK_API_SECRET=your-api-secret
 ```
 
 > **凭证兼容回退顺序**（按下列优先级取**第一个非空**值）：
 > - 讯飞 HTTP 模式（`xfyun-coding` / `xfyun-http`）：`API_KEY` → `SPARK_API_PASSWORD` → `SPARK_API_KEY`
-> - 讯飞 WebSocket 模式（`xfyun-websocket`）：`SPARK_API_KEY` → `API_KEY`（用作签名 key）
+> - 讯飞 WebSocket 模式（`xfyun-websocket`）：`SPARK_API_KEY` → `API_KEY`（仅作为签名 key 的回退，APP_ID / SECRET 必须单独提供）
 > - 火山方舟（`volcengine-coding`）：`API_KEY` → `VOLCENGINE_API_KEY` → `ARK_API_KEY`
 >
 > 推荐只设 `API_KEY` 一个变量，避免歧义。
@@ -275,6 +275,8 @@ claude
 > | `wss://spark-api.xf-yun.com/v1.1/chat` | `lite`、`kjwx` |
 >
 > 未列出的模型会回退到 `v4.0/chat` 端点。建议显式指定 `SPARK_WS_URL` 避免歧义。
+>
+> ⚠️ **警告**：若未知模型实际不支持 `v4.0/chat` 端点，将导致请求失败。请确保模型名与端点严格匹配。
 
 ---
 
@@ -316,11 +318,15 @@ Coding Plan 有 5 小时/周/月的请求次数限制，高峰期也可能触发
 
 **Q: 调用时提示 `Working directory does not exist`？**
 
-每个工具都要求 `cd` 指向**已存在的真实目录**（用于在多 Provider/多租户场景下区分上下文）。CI / 沙箱环境务必先 `mkdir -p` 工作目录。
+当前涉及文件系统操作的工具会校验 `cd` 参数必须为**已存在的真实目录**，若目录不存在将拒绝执行。CI / 沙箱环境务必先 `mkdir -p` 工作目录。
 
 **Q: 如何调试（查看完整消息历史）？**
 
-调用任意工具时传 `return_all_messages=True`，响应中会带 `all_messages` 字段返回当前会话全部消息。注意：消息历史只在内存中保存，重启 MCP server 后 `SESSION_ID` 失效。
+调用任意工具时传 `return_all_messages=True`，响应中会带 `all_messages` 字段返回当前会话全部消息。注意：`SESSION_ID` 对应的会话上下文保存在进程内存字典中，服务进程重启后内存清空，旧 `SESSION_ID` 即失效，需获取新 ID 开启新会话。
+
+**Q: 为什么修改了 `.env` 文件中的凭证，但依然提示鉴权失败？**
+
+应用加载 `.env` 文件时**不覆盖**已存在的系统环境变量（`override=False`），即**系统环境变量的优先级始终高于 `.env`**。请检查 Shell / CI 配置中是否设置了旧凭证。
 
 ---
 
