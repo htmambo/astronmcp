@@ -37,10 +37,12 @@ SPARK_APP_ID=your-app-id
 SPARK_API_SECRET=your-api-secret
 ```
 
-> **凭证兼容回退顺序**（`API_KEY` 为空时按下列顺序查找）：
-> - 讯飞 HTTP 模式：`SPARK_API_PASSWORD` → `SPARK_API_KEY`
-> - 讯飞 WebSocket 模式：`SPARK_API_KEY`（与 `API_KEY` 等价）
-> - 火山方舟：`VOLCENGINE_API_KEY` → `ARK_API_KEY`
+> **凭证兼容回退顺序**（按下列优先级取**第一个非空**值）：
+> - 讯飞 HTTP 模式（`xfyun-coding` / `xfyun-http`）：`API_KEY` → `SPARK_API_PASSWORD` → `SPARK_API_KEY`
+> - 讯飞 WebSocket 模式（`xfyun-websocket`）：`SPARK_API_KEY` → `API_KEY`（用作签名 key）
+> - 火山方舟（`volcengine-coding`）：`API_KEY` → `VOLCENGINE_API_KEY` → `ARK_API_KEY`
+>
+> 推荐只设 `API_KEY` 一个变量，避免歧义。
 
 ---
 
@@ -194,7 +196,7 @@ claude
 | `PROMPT` | `str` | ✅ | 任务指令 |
 | `cd` | `Path` | ✅ | 工作目录 |
 | `SESSION_ID` | `str` | ❌ | 继续会话，空则新建 |
-| `model` | `str` | ❌ | 模型版本，默认 `SPARK_DEFAULT_MODEL` |
+| `model` | `str` | ❌ | 模型版本；默认取 `PROVIDER` 内置值（`xfyun-coding` → `astron-code-latest`，`xfyun-http` / `xfyun-websocket` → `4.0Ultra`，`volcengine-coding` → `ark-code-latest`），可被 `SPARK_DEFAULT_MODEL` / `VOLCENGINE_MODEL` / `ARK_MODEL` 覆盖 |
 | `return_all_messages` | `bool` | ❌ | 是否返回完整历史 |
 
 返回值：
@@ -263,7 +265,16 @@ claude
 | `xfyun-websocket` | `24000` | `4096` | WebSocket 端点按 model 自动选择 |
 | `volcengine-coding` | `128000` | `8192` | 上下文最长 |
 
-> **WebSocket 端点选择规则**（`xfyun-websocket` 模式）：当未显式设置 `SPARK_WS_URL` 时，客户端按 `model` 名称自动选择 `wss` 端点——`4.0Ultra` / `generalv3.5` / `max-32k` / `generalv3` / `pro-128k` / `lite` / `kjwx` 等模型各自有专属域名；未列出的模型会回退到 `4.0Ultra` 的 `v4.0/chat` 端点。建议显式指定 `SPARK_WS_URL` 避免歧义。
+> **WebSocket 端点选择规则**（`xfyun-websocket` 模式）：客户端共维护 **4 个 `wss` 端点**，按 `model` 名称映射（当未显式设置 `SPARK_WS_URL` 时）：
+>
+> | 端点 | 映射的模型 |
+> |---|---|
+> | `wss://spark-api.xf-yun.com/v4.0/chat` | `4.0Ultra`（未列出模型的默认回退） |
+> | `wss://spark-api.xf-yun.com/v3.5/chat` | `generalv3.5`、`max-32k` |
+> | `wss://spark-api.xf-yun.com/v3.1/chat` | `generalv3`、`pro-128k` |
+> | `wss://spark-api.xf-yun.com/v1.1/chat` | `lite`、`kjwx` |
+>
+> 未列出的模型会回退到 `v4.0/chat` 端点。建议显式指定 `SPARK_WS_URL` 避免歧义。
 
 ---
 
