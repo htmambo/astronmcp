@@ -305,6 +305,7 @@ claude
 | `MCP_MAX_CONTEXT_CHARS` | 见 Provider | 上下文字符上限（兼容旧 `SPARK_MAX_CONTEXT_CHARS`） |
 | `MCP_MAX_MESSAGES` | `40` | 单会话最大消息数（兼容旧 `SPARK_MAX_MESSAGES`） |
 | `MCP_MAX_TOKENS` | 见 Provider | 单次最大输出 tokens（兼容旧 `SPARK_MAX_TOKENS`） |
+| `LOG_LEVEL` | `INFO` | 结构化日志级别（`DEBUG` / `INFO` / `WARNING` / `ERROR`），输出到 stderr |
 
 ### Provider 默认值一览
 
