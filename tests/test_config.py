@@ -6,7 +6,7 @@ from importlib import reload
 import pytest
 
 from coding_bridge_mcp import config as config_module
-from coding_bridge_mcp import spark_client as spark_client_module
+from coding_bridge_mcp import api_client as api_client_module
 
 
 @pytest.fixture(autouse=True)
@@ -147,8 +147,8 @@ def test_client_factory():
     os.environ["SPARK_MODE"] = "coding"
     os.environ["SPARK_API_PASSWORD"] = "key"
     reload(config_module)
-    reload(spark_client_module)
+    reload(api_client_module)
     settings = config_module.load_settings()
     config_module.validate_settings(settings)
-    client = spark_client_module.create_client(settings)
-    assert isinstance(client, spark_client_module.HttpSparkClient)
+    client = api_client_module.create_client(settings)
+    assert isinstance(client, api_client_module.HttpApiClient)

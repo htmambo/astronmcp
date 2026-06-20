@@ -43,3 +43,7 @@ Thumbs.db
 
 # Claude Code / OMC runtime state
 .omc/
+.claude/
+
+# pytest
+.pytest_cache/

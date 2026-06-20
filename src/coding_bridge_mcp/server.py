@@ -1,9 +1,8 @@
-"""FastMCP server implementation for iFlytek Spark / Coding Plan review."""
+"""FastMCP server implementation for multi-provider Coding Plan review."""
 
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from pathlib import Path
 from typing import Annotated, Any, Dict, List
@@ -15,13 +14,12 @@ from pydantic import Field
 # Load .env if present before reading configuration. Do not override existing env vars.
 load_dotenv(override=False)
 
+from coding_bridge_mcp.api_client import ApiClient, ApiError, create_client
 from coding_bridge_mcp.config import Settings, load_settings, validate_settings
-from coding_bridge_mcp.spark_client import SparkApiError, SparkClient, create_client
+from coding_bridge_mcp.logging_config import configure_logging, get_logger
 
-# Silence noisy HTTP/WebSocket libraries so they don't pollute MCP stdio.
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("websockets").setLevel(logging.WARNING)
+configure_logging()
+logger = get_logger(__name__)
 
 mcp = FastMCP("Coding Bridge MCP Server")
 
@@ -59,7 +57,7 @@ except Exception as _config_exc:
 else:
     _config_error = None
 
-_client: SparkClient | None = None
+_client: ApiClient | None = None
 _client_error: str | None = None
 _client_lock = asyncio.Lock()
 
@@ -68,8 +66,8 @@ _sessions: Dict[str, List[Dict[str, str]]] = {}
 _sessions_lock = asyncio.Lock()
 
 
-async def _ensure_client() -> tuple[SparkClient | None, str | None]:
-    """Lazy-initialize the Spark client and surface configuration errors."""
+async def _ensure_client() -> tuple[ApiClient | None, str | None]:
+    """Lazy-initialize the API client and surface configuration errors."""
     global _client, _client_error
 
     if _client is not None:
@@ -77,6 +75,7 @@ async def _ensure_client() -> tuple[SparkClient | None, str | None]:
     if _client_error is not None:
         return None, _client_error
     if _config_error is not None:
+        logger.error("client_configuration_error", error=_config_error)
         return None, _config_error
 
     async with _client_lock:
@@ -86,8 +85,15 @@ async def _ensure_client() -> tuple[SparkClient | None, str | None]:
             assert _settings is not None
             validate_settings(_settings)
             _client = create_client(_settings)
+            logger.info(
+                "client_initialized",
+                provider=_settings.provider,
+                mode=_settings.mode,
+                api_url=_settings.api_url,
+            )
         except Exception as exc:
-            _client_error = f"Spark client configuration error: {exc}"
+            _client_error = f"API client configuration error: {exc}"
+            logger.error("client_configuration_error", error=_client_error)
             return None, _client_error
         return _client, None
 
@@ -101,8 +107,10 @@ def _default_model() -> str:
 def _validate_cd(cd: Path) -> tuple[bool, str]:
     cwd_path = Path(cd)
     if not cwd_path.exists():
+        logger.warning("working_directory_missing", cd=str(cwd_path))
         return False, f"Working directory does not exist: {cwd_path}"
     if not cwd_path.is_dir():
+        logger.warning("working_directory_not_dir", cd=str(cwd_path))
         return False, f"Path is not a directory: {cwd_path}"
     return True, ""
 
@@ -162,17 +170,20 @@ async def _execute(
     temperature: float = 1.0,
     return_all_messages: bool = False,
 ) -> Dict[str, Any]:
-    """Shared helper: manage session, call Spark, format response."""
+    """Shared helper: manage session, call provider API, format response."""
     client, err = await _ensure_client()
     if client is None or err:
-        return {"success": False, "error": err or "Spark client unavailable"}
+        logger.error("api_call_failed", session_id=session_id, error=err)
+        return {"success": False, "error": err or "API client unavailable"}
 
     messages = await _get_or_create_session(session_id, system_prompt)
     await _append_message(session_id, "user", user_content)
 
+    logger.debug("api_request", session_id=session_id, model=model)
     try:
         content, usage = await client.call(messages, model, temperature)
-    except SparkApiError as exc:
+    except ApiError as exc:
+        logger.error("api_error", session_id=session_id, model=model, error=str(exc))
         return {
             "success": False,
             "error": str(exc),
@@ -180,6 +191,7 @@ async def _execute(
         }
 
     await _append_message(session_id, "assistant", content)
+    logger.info("api_response", session_id=session_id, model=model, has_usage=usage is not None)
 
     response: Dict[str, Any] = {
         "success": True,
@@ -229,10 +241,12 @@ async def chat(
     if not ok:
         return {"success": False, "error": err}
     if not PROMPT.strip():
+        logger.warning("chat_empty_prompt")
         return {"success": False, "error": "PROMPT cannot be empty."}
 
     model = model or _default_model()
     sid = SESSION_ID or str(uuid.uuid4())
+    logger.info("tool_invoked", tool="chat", session_id=sid, model=model, cd=str(cd))
 
     return await _execute(
         session_id=sid,
@@ -274,10 +288,12 @@ async def review_code(
     if not ok:
         return {"success": False, "error": err}
     if not CODE.strip():
+        logger.warning("review_code_empty_code")
         return {"success": False, "error": "CODE cannot be empty."}
 
     model = model or _default_model()
     sid = SESSION_ID or str(uuid.uuid4())
+    logger.info("tool_invoked", tool="review_code", session_id=sid, model=model, cd=str(cd))
     user_content = CODE
     if REQUIREMENTS.strip():
         user_content = f"【审查要求/上下文】\n{REQUIREMENTS}\n\n【代码】\n{CODE}"
@@ -322,10 +338,12 @@ async def review_plan(
     if not ok:
         return {"success": False, "error": err}
     if not PLAN.strip():
+        logger.warning("review_plan_empty_plan")
         return {"success": False, "error": "PLAN cannot be empty."}
 
     model = model or _default_model()
     sid = SESSION_ID or str(uuid.uuid4())
+    logger.info("tool_invoked", tool="review_plan", session_id=sid, model=model, cd=str(cd))
     user_content = PLAN
     if CONTEXT.strip():
         user_content = f"【项目背景】\n{CONTEXT}\n\n【计划】\n{PLAN}"
