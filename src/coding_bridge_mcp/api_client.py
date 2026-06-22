@@ -83,8 +83,12 @@ class HttpApiClient(ApiClient):
         logger.debug("http_request_payload", model=model, max_tokens=self.settings.max_tokens)
 
         try:
+            # trust_env=False: ignore HTTP_PROXY/HTTPS_PROXY/ALL_PROXY and never
+            # route traffic through a proxy. Direct connect to provider endpoint
+            # by design; see README §5 and docs/Task/TASK_NO_PROXY_PLAN.md.
             async with httpx.AsyncClient(
-                timeout=self.settings.timeout_seconds
+                timeout=self.settings.timeout_seconds,
+                trust_env=False,
             ) as client:
                 response = await client.post(
                     self.settings.api_url, headers=headers, json=payload

@@ -28,6 +28,14 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+# External review MCP (coding-bridge / kimi) proxies through SOCKS.
+# This project itself does not open SOCKS connections. Install via
+# `uv sync --extra review` to provision socksio for the review transport.
+review = [
+    "httpx[socks]>=0.27.0",
+]
+
 [project.scripts]
 coding-bridge-mcp = "coding_bridge_mcp.cli:main"
 
