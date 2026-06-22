@@ -430,7 +430,71 @@ Coding Plan 有 5 小时/周/月的请求次数限制，高峰期也可能触发
 
 ---
 
-## 八、开发与测试
+## 八、更新方式
+
+通过 `claude mcp add` 安装后，命令注册在 Claude Code 配置中固定不变。更新 = 让 `claude` 启动时重新拉取新版本。
+
+### 方式 A：清 uvx 缓存（推荐，适合远端已 push 的场景）
+
+`uvx --from git+...` 会带缓存窗口拉取远端源。清掉本地 wheel 缓存即可让下次启动重新 fetch。
+
+```bash
+# 清掉 coding-bridge-mcp 的 wheel 缓存
+uv cache clean coding-bridge-mcp
+
+# 重新启动 Claude，下次启动会自动拉取最新 main 分支
+```
+
+> 适用于：日常维护，远端 `main` 分支已有目标提交，本地无需修改。
+
+### 方式 B：临时切到本地 checkout（适合开发调试）
+
+跳过 uvx + git 拉取，直接用本地仓库的 `.venv` 跑。任何本地修改立即生效，无需 push。
+
+```bash
+# 1. 移除旧的远端源注册
+claude mcp remove coding-bridge
+
+# 2. 重新注册为本地路径
+claude mcp add coding-bridge -s user --transport stdio -- \
+  uv run --directory /home/hoping/htdocs/coding-bridge-mcp coding-bridge-mcp
+```
+
+> 适用于：本地有未推送的提交、需要立刻在 Claude 中验证最新代码改动。
+
+### 方式 C（可选）：锁版本到 commit / tag
+
+对生产部署建议锁定到具体版本，避免 main 分支意外变更影响线上行为。
+
+```bash
+# 第一次 add 时直接锁版本
+claude mcp add coding-bridge -s user --transport stdio -- \
+  uvx --from git+https://github.com/htmambo/coding-bridge-mcp.git@<commit-sha> coding-bridge-mcp
+
+# 锁到 tag
+claude mcp add coding-bridge -s user --transport stdio -- \
+  uvx --from git+https://github.com/htmambo/coding-bridge-mcp.git@v0.2.0 coding-bridge-mcp
+```
+
+更新时把 `@<sha>` 换成新值，重新执行 `claude mcp add`（同名会覆盖）。
+
+### 调试与验证
+
+```bash
+# 查看当前 MCP server 注册的命令
+claude mcp get coding-bridge
+
+# 直接运行看 uvx 是否拉到新版本
+uvx --from git+https://github.com/htmambo/coding-bridge-mcp.git coding-bridge-mcp --help
+
+# 看实际拉取的 commit
+uvx --from git+https://github.com/htmambo/coding-bridge-mcp.git@main \
+  python -c "import coding_bridge_mcp; print(coding_bridge_mcp.__file__)"
+```
+
+---
+
+## 九、开发与测试
 
 ```bash
 # 安装 dev 依赖
@@ -449,6 +513,6 @@ uv run coding-bridge-mcp
 
 ---
 
-## 九、许可证
+## 十、许可证
 
 MIT
