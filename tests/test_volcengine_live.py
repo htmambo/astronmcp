@@ -8,12 +8,17 @@ Run with::
 
     pytest -m volcengine_live tests/test_volcengine_live.py -v
 
+When ``-v`` is set the test prints a verbose, redacted trace of the live
+HTTP round-trip (request payload + response body). All API keys are
+redacted before printing — only the first/last 4 characters remain.
+
 Requires ``PROVIDER=volcengine-coding`` and ``API_KEY=<ark-key>`` in the
 environment (or a project ``.env`` that ``python-dotenv`` will load — but
 note that ``load_dotenv(override=False)`` only fills missing keys).
 """
 from __future__ import annotations
 
+import json
 import os
 from importlib import reload
 
@@ -24,6 +29,43 @@ from coding_bridge_mcp import config as config_module
 
 
 pytestmark = pytest.mark.volcengine_live
+
+
+def _redact_secret(value: str | None) -> str:
+    """Return a safe, abbreviated form of a secret for verbose logging.
+
+    Rules:
+        * ``None`` or empty        → ``"<unset>"``
+        * length < 12              → ``"***"``  (too short to safely truncate)
+        * otherwise                → ``"<first4>****<last4>"``
+
+    The original value is never reconstructed from this representation.
+    """
+    if not value:
+        return "<unset>"
+    if len(value) < 12:
+        return "***"
+    return f"{value[:4]}****{value[-4:]}"
+
+
+def _maybe_verbose(verbose: bool, payload: dict) -> None:
+    """Pretty-print ``payload`` to stderr when ``-v`` is active.
+
+    pytest shows stderr from passing tests only when ``-s`` is passed, but
+    also surfaces it as a ``Captured stderr call`` block on failure. Using
+    stderr (not stdout) keeps the trace separate from any test's real
+    return value, and matches the project's own logging convention
+    (see ``logging_config.configure_logging``).
+    """
+    if not verbose:
+        return
+    # `flush=True` so the trace appears immediately under `-s -v` rather
+    # than being held in the buffer until the test ends.
+    print(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        file=__import__("sys").stderr,
+        flush=True,
+    )
 
 
 def _build_volc_settings(monkeypatch):
@@ -51,8 +93,15 @@ def _build_volc_settings(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_volcengine_end_to_end_smoke(monkeypatch):
-    """Settings → validate → HttpApiClient → real Ark POST → non-empty reply."""
+async def test_volcengine_end_to_end_smoke(monkeypatch, request):
+    """Settings → validate → HttpApiClient → real Ark POST → non-empty reply.
+
+    Verbose request/response trace is printed to stderr when pytest is run
+    with ``-v`` (or higher) or with ``-s``. ``request`` is a built-in
+    pytest fixture; ``config.option.verbose`` reflects the verbosity flag
+    (True under ``-v``/``--verbose``).
+    """
+    verbose = bool(request.config.option.verbose)
     settings = _build_volc_settings(monkeypatch)
 
     # --- Local config layer checks (no network yet) ---
@@ -68,12 +117,46 @@ async def test_volcengine_end_to_end_smoke(monkeypatch):
     client = api_client_module.create_client(settings)
     assert isinstance(client, api_client_module.HttpApiClient)
 
-    # --- Real network call ---
     messages = [{"role": "user", "content": "用一句话回答：1+1=?"}]
+
+    # ---- Verbose trace: outbound request ----
+    _maybe_verbose(
+        verbose,
+        {
+            "stage": "request",
+            "url": settings.api_url,
+            "method": "POST",
+            "headers": {
+                "Authorization": f"Bearer {_redact_secret(settings.api_password)}",
+                "Content-Type": "application/json",
+            },
+            "payload": {
+                "model": settings.default_model,
+                "messages": messages,
+                "stream": False,
+                "temperature": 1.0,
+                "max_tokens": settings.max_tokens,
+            },
+        },
+    )
+
+    # --- Real network call ---
     content, usage = await client.call(
         messages=messages,
         model=settings.default_model,
         temperature=1.0,
+    )
+
+    # ---- Verbose trace: inbound response (no secrets on the return path) ----
+    _maybe_verbose(
+        verbose,
+        {
+            "stage": "response",
+            "url": settings.api_url,
+            "model_used": settings.default_model,
+            "content": content,
+            "usage": usage,
+        },
     )
 
     # --- Assertions on the real response ---
