@@ -50,3 +50,13 @@ dev = [
     "pytest>=9.1.0",
     "pytest-asyncio>=1.4.0",
 ]
+
+[tool.pytest.ini_options]
+# Live provider smoke tests hit real APIs (see tests/test_volcengine_live.py)
+# and are skipped by default. They are excluded from the default test set
+# via `addopts` so they never run alongside the hermetic suite, and must be
+# invoked explicitly with: pytest -m volcengine_live tests/test_volcengine_live.py
+markers = [
+    "volcengine_live: live smoke test against Volcano Engine Ark API",
+]
+addopts = "-m 'not volcengine_live'"
