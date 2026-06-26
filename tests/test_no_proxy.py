@@ -8,7 +8,6 @@ is configured. See README §5 and docs/Task/TASK_NO_PROXY_PLAN.md.
 
 from __future__ import annotations
 
-import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -51,8 +50,6 @@ def test_http_client_disables_trust_env(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("ALL_PROXY", "socks5://proxy.invalid:1080")
 
     captured: dict[str, object] = {}
-
-    real_async_client = __import__("httpx").AsyncClient
 
     def _spy(*args: object, **kwargs: object) -> object:
         captured.update(kwargs)

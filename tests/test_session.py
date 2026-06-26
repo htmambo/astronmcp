@@ -1,6 +1,5 @@
 """Tests for in-memory session management."""
 
-import os
 from importlib import reload
 
 import pytest

@@ -1,6 +1,5 @@
 """Tests for the get_token_stats tool and per-session usage accumulation."""
 
-import os
 from importlib import reload
 
 import pytest

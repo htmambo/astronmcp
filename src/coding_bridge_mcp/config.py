@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-from coding_bridge_mcp.providers import ProviderProfile, get_provider, resolve_provider_name
+from coding_bridge_mcp.providers import get_provider, resolve_provider_name
 
 VALID_PROXY_MODES = frozenset({"false", "env", "custom"})
 

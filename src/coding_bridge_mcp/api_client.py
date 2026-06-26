@@ -15,7 +15,7 @@ from urllib.parse import urlencode, urlparse
 
 import httpx
 
-from coding_bridge_mcp.config import ProxyEndpoint, Settings
+from coding_bridge_mcp.config import Settings
 from coding_bridge_mcp.logging_config import get_logger
 
 logger = get_logger(__name__)

@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from coding_bridge_mcp import api_client as api_client_module
 from coding_bridge_mcp import config as config_module
 from coding_bridge_mcp.api_client import _build_client_kwargs, HttpApiClient
 

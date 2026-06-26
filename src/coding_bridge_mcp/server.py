@@ -54,6 +54,18 @@ try:
 except Exception as _config_exc:
     _settings = None
     _config_error: str | None = str(_config_exc)
+    # Surface the failure loudly — _trim_messages/_ensure_client still fall back
+    # to safe defaults so the process keeps booting, but a misconfigured .env
+    # should never pass silently. Check the logs first when API calls fail.
+    logger.warning(
+        "config_load_failed",
+        error=_config_error,
+        fallback={
+            "max_context_chars": 96000,
+            "max_messages": 40,
+            "api_client": "lazy, will retry on first tool call",
+        },
+    )
 else:
     _config_error = None
 

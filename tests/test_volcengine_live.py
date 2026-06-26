@@ -19,7 +19,6 @@ note that ``load_dotenv(override=False)`` only fills missing keys).
 from __future__ import annotations
 
 import json
-import os
 from importlib import reload
 
 import pytest
