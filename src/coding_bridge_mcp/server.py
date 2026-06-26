@@ -65,6 +65,33 @@ _client_lock = asyncio.Lock()
 _sessions: Dict[str, List[Dict[str, str]]] = {}
 _sessions_lock = asyncio.Lock()
 
+# Per-session cumulative token usage: session_id -> usage dict.
+# Updated after every successful API call. Read by the ``get_token_stats``
+# tool so callers can inspect cumulative cost without summing client-side.
+_session_stats: Dict[str, Dict[str, int]] = {}
+_SESSION_STATS_FIELDS = (
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "cached_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+
+
+def _empty_stats() -> Dict[str, int]:
+    return {field: 0 for field in _SESSION_STATS_FIELDS}
+
+
+async def _accumulate_stats(session_id: str, usage: Dict[str, Any] | None) -> None:
+    """Add this turn's usage onto the per-session cumulative totals."""
+    if not usage:
+        return
+    async with _sessions_lock:
+        stats = _session_stats.setdefault(session_id, _empty_stats())
+        for field in _SESSION_STATS_FIELDS:
+            stats[field] += int(usage.get(field) or 0)
+
 
 async def _ensure_client() -> tuple[ApiClient | None, str | None]:
     """Lazy-initialize the API client and surface configuration errors."""
@@ -191,6 +218,7 @@ async def _execute(
         }
 
     await _append_message(session_id, "assistant", content)
+    await _accumulate_stats(session_id, usage)
     logger.info("api_response", session_id=session_id, model=model, has_usage=usage is not None)
 
     response: Dict[str, Any] = {
@@ -200,6 +228,9 @@ async def _execute(
     }
     if usage:
         response["usage"] = usage
+    async with _sessions_lock:
+        cumulative = dict(_session_stats.get(session_id, _empty_stats()))
+    response["cumulative_usage"] = cumulative
     if return_all_messages:
         async with _sessions_lock:
             response["all_messages"] = _sessions.get(session_id, [])
@@ -355,6 +386,67 @@ async def review_plan(
         model=model,
         return_all_messages=return_all_messages,
     )
+
+
+def _aggregate_stats(stats_list: List[Dict[str, int]]) -> Dict[str, int]:
+    """Sum each numeric field across a list of per-session usage dicts."""
+    total = _empty_stats()
+    for stats in stats_list:
+        for field in _SESSION_STATS_FIELDS:
+            total[field] += int(stats.get(field) or 0)
+    return total
+
+
+@mcp.tool(
+    name="get_token_stats",
+    description=(
+        "查询 Coding Bridge MCP 的 token 用量统计。\n"
+        "必选参数：cd（工作目录）。\n"
+        "可选参数：SESSION_ID（指定会话，空字符串或不传则汇总当前进程所有会话）。"
+    ),
+    meta={"version": "0.1.0"},
+)
+async def get_token_stats(
+    cd: Annotated[Path, "Working directory for the stats session."],
+    SESSION_ID: Annotated[
+        str,
+        Field(
+            default="",
+            description="Session ID to inspect. Empty returns the global total across all sessions.",
+        ),
+    ] = "",
+) -> Dict[str, Any]:
+    """Return cumulative token usage for a single session or the global total."""
+    ok, err = _validate_cd(cd)
+    if not ok:
+        return {"success": False, "error": err}
+
+    async with _sessions_lock:
+        if SESSION_ID:
+            if SESSION_ID not in _session_stats:
+                return {
+                    "success": True,
+                    "SESSION_ID": SESSION_ID,
+                    "cumulative_usage": _empty_stats(),
+                    "found": False,
+                }
+            return {
+                "success": True,
+                "SESSION_ID": SESSION_ID,
+                "cumulative_usage": dict(_session_stats[SESSION_ID]),
+                "found": True,
+            }
+
+        sessions_snapshot = {
+            sid: dict(stats) for sid, stats in _session_stats.items()
+        }
+
+    return {
+        "success": True,
+        "cumulative_usage": _aggregate_stats(list(sessions_snapshot.values())),
+        "session_count": len(sessions_snapshot),
+        "sessions": sessions_snapshot,
+    }
 
 
 def run() -> None:

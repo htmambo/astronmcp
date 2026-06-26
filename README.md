@@ -256,9 +256,26 @@ claude
   "success": true,
   "SESSION_ID": "uuid-string",
   "agent_messages": "模型回复内容...",
-  "usage": { "prompt_tokens": 100, "completion_tokens": 200, "total_tokens": 300 }
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 200,
+    "total_tokens": 300,
+    "cached_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  },
+  "cumulative_usage": {
+    "prompt_tokens": 350,
+    "completion_tokens": 540,
+    "total_tokens": 890,
+    "cached_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  }
 }
 ```
+
+`usage` 是**当前这一轮**的 token 用量，`cumulative_usage` 是该会话从开始到现在的累计值（跨多轮对话自动累加）。当 `SESSION_ID` 沿用同一个时，累计值会持续增长。
 
 ### `review_code` — 代码审查
 
@@ -281,6 +298,59 @@ claude
 | `SESSION_ID` | `str` | ❌ | 继续会话 |
 | `model` | `str` | ❌ | 模型版本 |
 | `return_all_messages` | `bool` | ❌ | 返回完整历史 |
+
+---
+
+### `get_token_stats` — 查询 token 用量统计
+
+读取当前 MCP 进程内**已累计**的 token 用量。所有写操作工具（`chat` / `review_code` / `review_plan`）在每次成功调用后都会把 `usage` 累加到对应会话；本工具不发起任何 HTTP 请求。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `cd` | `Path` | ✅ | 工作目录 |
+| `SESSION_ID` | `str` | ❌ | 指定会话 ID；空字符串或不传则汇总当前进程所有会话 |
+
+返回值（指定 `SESSION_ID` 时）：
+
+```json
+{
+  "success": true,
+  "SESSION_ID": "uuid-string",
+  "found": true,
+  "cumulative_usage": {
+    "prompt_tokens": 350,
+    "completion_tokens": 540,
+    "total_tokens": 890,
+    "cached_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  }
+}
+```
+
+返回值（不传 `SESSION_ID`，全局汇总）：
+
+```json
+{
+  "success": true,
+  "cumulative_usage": {
+    "prompt_tokens": 1280,
+    "completion_tokens": 960,
+    "total_tokens": 2240,
+    "cached_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0
+  },
+  "session_count": 3,
+  "sessions": {
+    "uuid-a": { "prompt_tokens": 350, "...": "..." },
+    "uuid-b": { "...": "..." },
+    "uuid-c": { "...": "..." }
+  }
+}
+```
+
+> **关于缓存三件套**：`cached_tokens` / `cache_creation_input_tokens` / `cache_read_input_tokens` 是 Anthropic 风格的统一 schema。当前 `volcengine-coding` 与 `xfyun-coding` 默认不启用上下文缓存，所以通常为 0；`cached_tokens` 会在厂商返回 `usage.prompt_tokens_details.cached_tokens` 或顶层 `cached_tokens` 时如实透传。Schema 稳定后，未来即便切换到真正支持缓存的 Provider，调用方代码也无需调整。
 
 ---
 

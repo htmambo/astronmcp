@@ -71,6 +71,58 @@ def _safe_url(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}{parsed.path or ''}"
 
 
+def _normalize_usage(usage: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    """Normalize provider-specific usage dict into a stable schema.
+
+    Returns a dict with these keys (missing values default to 0):
+
+    - ``prompt_tokens``      — input tokens for this turn
+    - ``completion_tokens``  — output tokens for this turn
+    - ``total_tokens``       — sum of the two
+    - ``cached_tokens``      — input tokens served from cache (Anthropic-style)
+    - ``cache_creation_input_tokens``  — tokens written to cache this turn
+    - ``cache_read_input_tokens``      — tokens read from cache this turn
+
+    Both volcengine-coding and xfyun-coding are OpenAI-compatible. The
+    OpenAI/Ark convention is ``usage.prompt_tokens_details.cached_tokens``;
+    some providers (notably older xfyun responses) put it at the top level
+    as ``cached_tokens``. We accept both shapes and emit the Anthropic-style
+    triple so downstream consumers have a stable contract.
+
+    If ``usage`` is ``None`` or empty, returns ``None``.
+    """
+    if not usage:
+        return None
+
+    def _coerce_int(value: Any) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    prompt = _coerce_int(usage.get("prompt_tokens"))
+    completion = _coerce_int(usage.get("completion_tokens"))
+    total = _coerce_int(usage.get("total_tokens")) or (prompt + completion)
+
+    details = usage.get("prompt_tokens_details") or {}
+    if isinstance(details, dict):
+        cached = _coerce_int(details.get("cached_tokens"))
+    else:
+        cached = 0
+    # Fallback: top-level cached_tokens (some xfyun responses).
+    if not cached:
+        cached = _coerce_int(usage.get("cached_tokens"))
+
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+        "cached_tokens": cached,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+
+
 class ApiClient(ABC):
     """Abstract client for calling provider models."""
 
@@ -176,7 +228,7 @@ class HttpApiClient(ApiClient):
                 f"Unexpected API response structure: {exc}\nBody: {data}"
             ) from exc
 
-        usage = data.get("usage")
+        usage = _normalize_usage(data.get("usage"))
         return content, usage
 
 
@@ -350,7 +402,9 @@ class WebSocketApiClient(ApiClient):
 
                 status = choices.get("status")
                 if status == 2:
-                    usage = data.get("payload", {}).get("usage")
+                    usage = _normalize_usage(
+                        data.get("payload", {}).get("usage")
+                    )
                     logger.info(
                         "websocket_response_complete",
                         url=safe_url,
