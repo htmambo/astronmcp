@@ -114,6 +114,33 @@ claude mcp list
 
 应看到 `coding-bridge: uv run --python 3.12 coding-bridge-mcp - ✓ Connected` 或 `coding-bridge: uvx --from git+https://github.com/htmambo/coding-bridge-mcp.git coding-bridge-mcp - ✓ Connected`。
 
+### 接入 Kimi Code
+
+Kimi Code 通过 `~/.kimi-code/mcp.json` 声明 MCP Server（也支持项目级 `.kimi-code/mcp.json`，优先级更高）。创建或编辑该文件，加入以下内容：
+
+```json
+{
+  "mcpServers": {
+    "coding-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/coding-bridge-mcp.git",
+        "coding-bridge-mcp"
+      ],
+      "env": {
+        "PROVIDER": "xfyun-coding",
+        "API_KEY": "your-xfyun-key"
+      }
+    }
+  }
+}
+```
+
+> 注意：Kimi Code 的 MCP 配置**不能**通过 `kimi mcp add` 命令添加，只能直接编辑 `~/.kimi-code/mcp.json`。修改后需要重启 Kimi 会话或启动新会话才会加载。
+
+验证：重启 Kimi 后，新会话中应出现 `mcp__coding-bridge__chat`、`mcp__coding-bridge__review_code` 等工具。
+
 ---
 
 ## 三、配置 API Key
@@ -210,6 +237,98 @@ WebSocket 模式需要 `SPARK_APP_ID`、`SPARK_API_SECRET` 以及 API 密钥（*
 }
 ```
 
+### Kimi Code（`~/.kimi-code/mcp.json`）
+
+Kimi Code 的 MCP 配置与 Claude Code 的 `settings.json` 结构相同，只是把文件放到 `~/.kimi-code/mcp.json`。各 Provider 配置示例如下。
+
+#### 讯飞 Coding Plan（默认）
+
+```json
+{
+  "mcpServers": {
+    "coding-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/coding-bridge-mcp.git",
+        "coding-bridge-mcp"
+      ],
+      "env": {
+        "PROVIDER": "xfyun-coding",
+        "API_KEY": "your-xfyun-key"
+      }
+    }
+  }
+}
+```
+
+#### 讯飞星火大模型（通用 OpenAI 兼容接口）
+
+```json
+{
+  "mcpServers": {
+    "coding-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/coding-bridge-mcp.git",
+        "coding-bridge-mcp"
+      ],
+      "env": {
+        "PROVIDER": "xfyun-http",
+        "API_KEY": "your-xfyun-key"
+      }
+    }
+  }
+}
+```
+
+#### 讯飞星火大模型（原生 WebSocket）
+
+```json
+{
+  "mcpServers": {
+    "coding-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/coding-bridge-mcp.git",
+        "coding-bridge-mcp"
+      ],
+      "env": {
+        "PROVIDER": "xfyun-websocket",
+        "SPARK_API_KEY": "your-xfyun-api-key",
+        "SPARK_APP_ID": "your-app-id",
+        "SPARK_API_SECRET": "your-api-secret"
+      }
+    }
+  }
+}
+```
+
+#### 火山方舟 Coding Plan 个人版
+
+```json
+{
+  "mcpServers": {
+    "coding-bridge": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/htmambo/coding-bridge-mcp.git",
+        "coding-bridge-mcp"
+      ],
+      "env": {
+        "PROVIDER": "volcengine-coding",
+        "API_KEY": "your-volcano-key"
+      }
+    }
+  }
+}
+```
+
+> 提示：Kimi Code 暂不支持全局 `AGENTS.md`，自动审查规范需要放在**项目根目录**的 `AGENTS.md` 中，详见 §6。
+
 如果你用的是本地克隆的方式 A，把 `command`/`args` 换成：
 
 ```json
@@ -219,9 +338,9 @@ WebSocket 模式需要 `SPARK_APP_ID`、`SPARK_API_SECRET` 以及 API 密钥（*
 }
 ```
 
-> 注：上方 4 个示例均可按此规则改为本地克隆命令，仅 `command` / `args` 字段需要替换。
+> 注：以上 Claude Code 与 Kimi Code 示例中的 `uvx --from git+...` 均可按此规则改为本地克隆命令，仅 `command` / `args` 字段需要替换。
 
-> 修改配置后，重启 Claude Code 或运行 `claude mcp list` 刷新。
+> 修改 Claude Code 配置后，重启 Claude Code 或运行 `claude mcp list` 刷新；修改 Kimi Code 的 `~/.kimi-code/mcp.json` 后，重启 Kimi 会话即可。
 
 ### 替代方案：从 Shell 启动
 
@@ -450,7 +569,9 @@ claude
 
 ---
 
-## 六、在 Claude Code 提示词中推荐使用
+## 六、在 Claude Code / Kimi Code 提示词中推荐使用
+
+### Claude Code：全局 `~/.claude/CLAUDE.md`
 
 在 `~/.claude/CLAUDE.md` 中加入类似内容，可让 Claude Code 在编码流程中主动调用审查工具：
 
@@ -462,6 +583,42 @@ claude
 3. 保存每次返回的 `SESSION_ID`，以便对同一话题进行多轮追问。
 4. 星火/Coding Plan 的回复仅供参考，你仍需保持独立判断。
 ```
+
+### Kimi Code：项目级 `AGENTS.md`
+
+Kimi Code **没有全局 AGENTS.md**，它只从项目树中读取 `AGENTS.md` / `.kimi/AGENTS.md` / `agents.md`。因此自动审查规范必须放在**每个项目的根目录**。
+
+在当前项目根目录创建 `AGENTS.md`，内容示例：
+
+```markdown
+# Coding Bridge MCP 自动审查规范
+
+## 1. 计划审查（形成思路后）
+
+调用 `mcp__coding-bridge__review_plan`：
+- `PLAN`：当前实现计划文本
+- `cd`：当前项目根目录
+- `CONTEXT`：项目背景与约束（可选）
+
+## 2. 代码审查（完成修改后）
+
+**每次对 `src/`、`tests/` 做出实质性修改后，必须调用 `mcp__coding-bridge__review_code`：**
+- `CODE`：需要审查的完整代码或 diff
+- `cd`：当前项目根目录
+- `REQUIREMENTS`：额外上下文（可选）
+
+## 3. 多轮追问
+
+保存每次返回的 `SESSION_ID`，对同一话题继续追问时沿用该 ID。
+
+## 4. 判断原则
+
+Coding Plan / 星火返回的审查结论仅供参考，你仍需保持独立判断。
+```
+
+> 注意：`AGENTS.md` 在会话启动时读取，修改后需要**重启 Kimi 会话**才会生效。
+>
+> 如果需要在多个项目复用同一份规范，可在 `~/.kimi-code/templates/AGENTS.md` 维护一份母版，新建项目时复制进去。Kimi Code 不会读取 `~/.kimi-code/AGENTS.md`。
 
 ---
 
