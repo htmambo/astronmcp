@@ -137,7 +137,7 @@ Kimi Code 通过 `~/.kimi-code/mcp.json` 声明 MCP Server（也支持项目级 
 }
 ```
 
-> 注意：Kimi Code 的 MCP 配置**不能**通过 `kimi mcp add` 命令添加，只能直接编辑 `~/.kimi-code/mcp.json`。修改后需要重启 Kimi 会话或启动新会话才会加载。
+> 注意：当前 Kimi Code 的 MCP 配置主要通过直接编辑 `~/.kimi-code/mcp.json` 完成。修改后需要重启 Kimi 会话或启动新会话才会加载。
 
 验证：重启 Kimi 后，新会话中应出现 `mcp__coding-bridge__chat`、`mcp__coding-bridge__review_code` 等工具。
 
