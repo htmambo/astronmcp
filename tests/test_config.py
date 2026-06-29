@@ -31,6 +31,9 @@ def clean_env(monkeypatch):
         "QIANFAN_API_KEY",
         "QIANFAN_API_URL",
         "QIANFAN_MODEL",
+        "OPENCODE_API_KEY",
+        "OPENCODE_API_URL",
+        "OPENCODE_MODEL",
         "MCP_MAX_CONTEXT_CHARS",
         "MCP_MAX_TOKENS",
     ]:
@@ -137,6 +140,44 @@ def test_qianfan_api_key_takes_precedence_over_specific():
     os.environ["PROVIDER"] = "qianfan-coding"
     os.environ["API_KEY"] = "generic-key"
     os.environ["QIANFAN_API_KEY"] = "qianfan-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_opencode_defaults():
+    os.environ["PROVIDER"] = "opencode-go"
+    os.environ["OPENCODE_API_KEY"] = "oc-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.provider == "opencode-go"
+    assert settings.mode == "http"
+    assert settings.api_url == "https://opencode.ai/zen/go/v1/chat/completions"
+    assert settings.default_model == "glm-5.2"
+    assert settings.max_context_chars == 96000
+    assert settings.max_tokens == 8192
+    assert settings.api_password == "oc-key"
+
+
+def test_opencode_uses_generic_api_key():
+    os.environ["PROVIDER"] = "opencode-go"
+    os.environ["API_KEY"] = "generic-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_opencode_api_key_takes_precedence_over_specific():
+    # Lock first-match-wins semantics: API_KEY wins when both are set.
+    os.environ["PROVIDER"] = "opencode-go"
+    os.environ["API_KEY"] = "generic-key"
+    os.environ["OPENCODE_API_KEY"] = "oc-key"
     reload(config_module)
     settings = config_module.load_settings()
     config_module.validate_settings(settings)

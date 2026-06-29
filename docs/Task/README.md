@@ -6,6 +6,7 @@
 ## Completed Tasks (Archive)
 
 ### 2026-06
+- ✅ [Add OpenCode Go Provider (opencode-go)](Archive/2026-06/OPENCODE_GO_PROVIDER_PLAN.md) - Completed 2026-06-30
 - ✅ [Add Baidu Qianfan Coding Plan Provider (qianfan-coding)](Archive/2026-06/QIANFAN_CODING_PROVIDER_PLAN.md) - Completed 2026-06-29
 - ✅ [Disable Proxy By Default](Archive/2026-06/DISABLE_PROXY_BY_DEFAULT_PLAN.md) - Completed 2026-06-22 (commit 5b3cb3c)
 - ✅ [Proxy Configuration (false/env/custom)](Archive/2026-06/PROXY_CONFIGURATION_PLAN.md) - Completed 2026-06-22

@@ -87,12 +87,28 @@ QIANFAN_CODING = ProviderProfile(
     model_env_vars=["QIANFAN_MODEL"],
 )
 
+# OpenCode Go profile (OpenAI-compatible subset: GLM / Kimi / DeepSeek / MiMo).
+# MiniMax / Qwen models speak the Anthropic protocol (/v1/messages) and are NOT
+# covered by HttpApiClient — they would need a separate Anthropic client.
+OPENCODE_GO = ProviderProfile(
+    name="opencode-go",
+    mode="http",
+    default_api_url="https://opencode.ai/zen/go/v1/chat/completions",
+    default_model="glm-5.2",
+    default_max_context_chars=96_000,
+    default_max_tokens=8_192,
+    api_key_env_vars=["API_KEY", "OPENCODE_API_KEY"],
+    api_url_env_vars=["OPENCODE_API_URL"],
+    model_env_vars=["OPENCODE_MODEL"],
+)
+
 PROVIDERS = {
     XFYUN_CODING.name: XFYUN_CODING,
     XFYUN_HTTP.name: XFYUN_HTTP,
     XFYUN_WEBSOCKET.name: XFYUN_WEBSOCKET,
     VOLCENGINE_CODING.name: VOLCENGINE_CODING,
     QIANFAN_CODING.name: QIANFAN_CODING,
+    OPENCODE_GO.name: OPENCODE_GO,
 }
 
 # Backward-compatible mapping from legacy SPARK_MODE to new provider names.
