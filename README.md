@@ -16,7 +16,7 @@ Coding Bridge MCP 通过统一的 OpenAI 兼容 HTTP 客户端接入多个厂商
 | **xfyun-http** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://spark-api-open.xf-yun.com/v1/chat/completions` | `4.0Ultra` |
 | **xfyun-websocket** | 原生 WebSocket | `SPARK_APP_ID` + `SPARK_API_KEY`（签名）+ `SPARK_API_SECRET` | `wss://spark-api.xf-yun.com/v4.0/chat` | `4.0Ultra` |
 | **volcengine-coding** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions` | `ark-code-latest` |
-| **qianfan-coding** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://qianfan.baidubce.com/v2/coding` | `qianfan-code-latest` |
+| **qianfan-coding** | OpenAI 兼容 | `API_KEY`（HTTP Bearer） | `https://qianfan.baidubce.com/v2/coding/chat/completions` | `qianfan-code-latest` |
 
 > **注意**：Coding Plan 类套餐（讯飞、火山）的 API Key **仅限在 AI 编程工具交互场景中使用**，禁止用于自动化脚本、批量任务或自建后端。
 

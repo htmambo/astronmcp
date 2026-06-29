@@ -75,7 +75,10 @@ VOLCENGINE_CODING = ProviderProfile(
 QIANFAN_CODING = ProviderProfile(
     name="qianfan-coding",
     mode="http",
-    default_api_url="https://qianfan.baidubce.com/v2/coding",
+    # Path suffix /chat/completions is appended by the platform itself
+    # (千帆 Coding Plan 在基础 URL /v2/coding 之后自动追加 OpenAI 标准路径);
+    # the complete endpoint is therefore /v2/coding/chat/completions.
+    default_api_url="https://qianfan.baidubce.com/v2/coding/chat/completions",
     default_model="qianfan-code-latest",
     default_max_context_chars=96_000,
     default_max_tokens=8_192,

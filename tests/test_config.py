@@ -115,7 +115,7 @@ def test_qianfan_defaults():
 
     assert settings.provider == "qianfan-coding"
     assert settings.mode == "http"
-    assert settings.api_url == "https://qianfan.baidubce.com/v2/coding"
+    assert settings.api_url == "https://qianfan.baidubce.com/v2/coding/chat/completions"
     assert settings.default_model == "qianfan-code-latest"
     assert settings.max_context_chars == 96000
     assert settings.max_tokens == 8192

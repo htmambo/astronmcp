@@ -63,7 +63,7 @@ def test_qianfan_provider_profile_loaded() -> None:
     assert "qianfan-coding" in providers.PROVIDERS
     profile = providers.get_provider("qianfan-coding")
     assert profile.mode == "http"
-    assert profile.default_api_url == "https://qianfan.baidubce.com/v2/coding"
+    assert profile.default_api_url == "https://qianfan.baidubce.com/v2/coding/chat/completions"
     assert profile.default_model == "qianfan-code-latest"
     assert profile.api_key_env_vars == ["API_KEY", "QIANFAN_API_KEY"]
     assert profile.api_url_env_vars == ["QIANFAN_API_URL"]
@@ -78,7 +78,7 @@ def test_qianfan_settings_resolve() -> None:
     config_module.validate_settings(settings)
 
     assert settings.provider == "qianfan-coding"
-    assert settings.api_url == "https://qianfan.baidubce.com/v2/coding"
+    assert settings.api_url == "https://qianfan.baidubce.com/v2/coding/chat/completions"
     assert settings.default_model == "qianfan-code-latest"
     assert settings.api_password == "qianfan-test-key"
 
@@ -86,12 +86,12 @@ def test_qianfan_settings_resolve() -> None:
 def test_qianfan_url_override_takes_effect() -> None:
     os.environ["PROVIDER"] = "qianfan-coding"
     os.environ["QIANFAN_API_KEY"] = "k"
-    os.environ["QIANFAN_API_URL"] = "https://qianfan-staging.example.com/v2/coding"
+    os.environ["QIANFAN_API_URL"] = "https://qianfan-staging.example.com/v2/coding/chat/completions"
     os.environ["QIANFAN_MODEL"] = "qianfan-code-experimental"
     reload(config_module)
     settings = config_module.load_settings()
 
-    assert settings.api_url == "https://qianfan-staging.example.com/v2/coding"
+    assert settings.api_url == "https://qianfan-staging.example.com/v2/coding/chat/completions"
     assert settings.default_model == "qianfan-code-experimental"
 
 
@@ -112,7 +112,7 @@ def _qianfan_settings() -> Settings:
     return Settings(
         provider="qianfan-coding",
         mode="http",
-        api_url="https://qianfan.baidubce.com/v2/coding",
+        api_url="https://qianfan.baidubce.com/v2/coding/chat/completions",
         api_password="qianfan-test-key",
         app_id="",
         api_key="",
@@ -175,7 +175,7 @@ def test_qianfan_posts_to_documented_endpoint() -> None:
             [{"role": "user", "content": "ping"}],
             model="qianfan-code-latest",
         ))
-    assert captured["post_url"] == "https://qianfan.baidubce.com/v2/coding"
+    assert captured["post_url"] == "https://qianfan.baidubce.com/v2/coding/chat/completions"
 
 
 def test_qianfan_sends_bearer_authorization() -> None:
