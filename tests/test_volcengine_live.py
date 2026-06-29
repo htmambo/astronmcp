@@ -14,20 +14,46 @@ redacted before printing — only the first/last 4 characters remain.
 
 Requires ``PROVIDER=volcengine-coding`` and ``API_KEY=<ark-key>`` in the
 environment (or a project ``.env`` that ``python-dotenv`` will load — but
-note that ``load_dotenv(override=False)`` only fills missing keys).
+note that ``load_dotenv(override=False)`` only fills missing keys). The key
+is **never** hardcoded in source; if no key is configured the test is
+skipped via ``pytest.skip``.
 """
 from __future__ import annotations
 
 import json
+import os
 from importlib import reload
 
 import pytest
+from dotenv import load_dotenv
 
 from coding_bridge_mcp import api_client as api_client_module
 from coding_bridge_mcp import config as config_module
 
 
 pytestmark = pytest.mark.volcengine_live
+
+
+def _load_ark_key() -> str:
+    """Resolve the Ark API key from the environment or a project ``.env``.
+
+    Order matches the volcengine-coding credential fallback: ``API_KEY`` →
+    ``VOLCENGINE_API_KEY`` → ``ARK_API_KEY``. ``load_dotenv(override=False)``
+    fills missing keys from ``.env`` (same behaviour as ``server.py``) so a
+    project-local key works without exporting it to the shell.
+
+    Raises ``pytest.skip`` when no key is configured — the live test is opt-in
+    by marker, and running it without credentials would only produce a 401.
+    """
+    load_dotenv(override=False)
+    for name in ("API_KEY", "VOLCENGINE_API_KEY", "ARK_API_KEY"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    pytest.skip(
+        "volcengine_live requires one of API_KEY / VOLCENGINE_API_KEY / "
+        "ARK_API_KEY in the environment or .env"
+    )
 
 
 def _redact_secret(value: str | None) -> str:
@@ -80,10 +106,9 @@ def _build_volc_settings(monkeypatch):
     ]:
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("PROVIDER", "volcengine-coding")
-    # Project ships a .env with the user's Ark key; set it explicitly so the
-    # test does not depend on cwd. `monkeypatch.setenv` overrides any prior
-    # value, which is the desired behavior here.
-    monkeypatch.setenv("API_KEY", "***REMOVED-ARK-KEY***")
+    # Read the Ark key from the environment (never hardcode it in source).
+    # _load_ark_key() skips the test when no key is configured.
+    monkeypatch.setenv("API_KEY", _load_ark_key())
     reload(config_module)
     reload(api_client_module)
     settings = config_module.load_settings()

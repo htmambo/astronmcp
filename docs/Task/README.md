@@ -6,6 +6,7 @@
 ## Completed Tasks (Archive)
 
 ### 2026-06
+- ✅ [Fix hardcoded Ark key leak in test_volcengine_live.py](Archive/2026-06/SECURITY_FIX_ARK_KEY_LEAK_PLAN.md) - Completed 2026-06-30
 - ✅ [Add OpenCode Go Provider (opencode-go)](Archive/2026-06/OPENCODE_GO_PROVIDER_PLAN.md) - Completed 2026-06-30
 - ✅ [Add Baidu Qianfan Coding Plan Provider (qianfan-coding)](Archive/2026-06/QIANFAN_CODING_PROVIDER_PLAN.md) - Completed 2026-06-29
 - ✅ [Disable Proxy By Default](Archive/2026-06/DISABLE_PROXY_BY_DEFAULT_PLAN.md) - Completed 2026-06-22 (commit 5b3cb3c)
