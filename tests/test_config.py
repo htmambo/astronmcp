@@ -34,6 +34,9 @@ def clean_env(monkeypatch):
         "OPENCODE_API_KEY",
         "OPENCODE_API_URL",
         "OPENCODE_MODEL",
+        "SENSENOVA_API_KEY",
+        "SENSENOVA_API_URL",
+        "SENSENOVA_MODEL",
         "MCP_MAX_CONTEXT_CHARS",
         "MCP_MAX_TOKENS",
     ]:
@@ -183,6 +186,55 @@ def test_opencode_api_key_takes_precedence_over_specific():
     config_module.validate_settings(settings)
 
     assert settings.api_password == "generic-key"
+
+
+def test_sensenova_defaults():
+    os.environ["PROVIDER"] = "sensenova"
+    os.environ["SENSENOVA_API_KEY"] = "sn-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.provider == "sensenova"
+    assert settings.mode == "http"
+    assert settings.api_url == "https://token.sensenova.cn/v1/chat/completions"
+    assert settings.default_model == "deepseek-v4-flash"
+    assert settings.max_context_chars == 96000
+    assert settings.max_tokens == 8192
+    assert settings.api_password == "sn-key"
+
+
+def test_sensenova_uses_generic_api_key():
+    os.environ["PROVIDER"] = "sensenova"
+    os.environ["API_KEY"] = "generic-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_sensenova_api_key_takes_precedence_over_specific():
+    # Lock first-match-wins semantics: API_KEY wins when both are set.
+    os.environ["PROVIDER"] = "sensenova"
+    os.environ["API_KEY"] = "generic-key"
+    os.environ["SENSENOVA_API_KEY"] = "sn-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_sensenova_model_override():
+    os.environ["PROVIDER"] = "sensenova"
+    os.environ["SENSENOVA_API_KEY"] = "sn-key"
+    os.environ["SENSENOVA_MODEL"] = "sensenova-6.7-flash-lite"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.default_model == "sensenova-6.7-flash-lite"
 
 
 def test_coding_uses_generic_api_key():
