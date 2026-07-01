@@ -59,5 +59,6 @@ dev = [
 markers = [
     "volcengine_live: live smoke test against Volcano Engine Ark API",
     "opencode_live: live smoke test against the OpenCode Go API",
+    "deepseek_live: live smoke test against the DeepSeek official API",
 ]
-addopts = "-m 'not volcengine_live and not opencode_live'"
+addopts = "-m 'not volcengine_live and not opencode_live and not deepseek_live'"

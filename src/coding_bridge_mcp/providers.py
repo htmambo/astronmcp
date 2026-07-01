@@ -123,6 +123,29 @@ SENSENOVA = ProviderProfile(
     model_env_vars=["SENSENOVA_MODEL"],
 )
 
+# DeepSeek official API profile (OpenAI-compatible).
+# Auth is a plain ``Authorization: Bearer sk-...`` key, so the generic
+# HttpApiClient covers it with no protocol-layer code. Base URL is
+# https://api.deepseek.com; the chat endpoint is /chat/completions (no /v1
+# needed — https://api.deepseek.com/v1 also works as base). Chat models:
+# ``deepseek-v4-pro`` (default here) and ``deepseek-v4-flash``; the legacy
+# ``deepseek-chat`` / ``deepseek-reasoner`` names are deprecated on 2026-07-24
+# (they map to the non-thinking / thinking modes of deepseek-v4-flash).
+# The "pro" model runs in thinking mode, so responses carry a
+# ``reasoning_content`` field alongside ``content``; HttpApiClient only reads
+# ``content`` (the final answer), which is the desired behavior for review.
+DEEPSEEK = ProviderProfile(
+    name="deepseek",
+    mode="http",
+    default_api_url="https://api.deepseek.com/chat/completions",
+    default_model="deepseek-v4-pro",
+    default_max_context_chars=96_000,
+    default_max_tokens=8_192,
+    api_key_env_vars=["API_KEY", "DEEPSEEK_API_KEY"],
+    api_url_env_vars=["DEEPSEEK_API_URL"],
+    model_env_vars=["DEEPSEEK_MODEL"],
+)
+
 PROVIDERS = {
     XFYUN_CODING.name: XFYUN_CODING,
     XFYUN_HTTP.name: XFYUN_HTTP,
@@ -131,6 +154,7 @@ PROVIDERS = {
     QIANFAN_CODING.name: QIANFAN_CODING,
     OPENCODE_GO.name: OPENCODE_GO,
     SENSENOVA.name: SENSENOVA,
+    DEEPSEEK.name: DEEPSEEK,
 }
 
 # Backward-compatible mapping from legacy SPARK_MODE to new provider names.

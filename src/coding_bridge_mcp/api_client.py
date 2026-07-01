@@ -228,6 +228,28 @@ class HttpApiClient(ApiClient):
                 f"Unexpected API response structure: {exc}\nBody: {data}"
             ) from exc
 
+        # Thinking-mode models (e.g. deepseek-v4-pro) emit the chain-of-thought
+        # in ``reasoning_content`` and the final answer in ``content``. A
+        # missing/empty ``content`` means the model produced no final answer —
+        # surface it explicitly rather than silently returning an empty string
+        # (which would let a review tool proceed on empty input).
+        if not content:
+            # ``choices`` may be missing, None, or an empty list — guard the
+            # index so the diagnostic hint itself never raises (which would
+            # mask the real "empty content" cause with an IndexError).
+            choices = data.get("choices") or [{}]
+            msg = (choices[0] or {}).get("message") or {}
+            has_reasoning = bool(msg.get("reasoning_content"))
+            hint = (
+                " (model returned only reasoning_content; the final answer is "
+                "empty — retry, raise max_tokens, or switch to a non-thinking model)"
+                if has_reasoning
+                else ""
+            )
+            raise ApiError(
+                f"API returned empty content{hint}\nBody: {data}"
+            )
+
         usage = _normalize_usage(data.get("usage"))
         return content, usage
 

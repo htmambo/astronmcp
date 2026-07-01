@@ -6,6 +6,7 @@
 ## Completed Tasks (Archive)
 
 ### 2026-07
+- ✅ [Add DeepSeek Provider (deepseek)](Archive/2026-07/DEEPSEEK_PROVIDER_PLAN.md) - Completed 2026-07-01
 - ✅ [Add SenseNova Provider (sensenova)](Archive/2026-07/SENSENOVA_PROVIDER_PLAN.md) - Completed 2026-07-01
 
 ### 2026-06
