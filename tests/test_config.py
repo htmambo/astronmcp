@@ -37,6 +37,9 @@ def clean_env(monkeypatch):
         "SENSENOVA_API_KEY",
         "SENSENOVA_API_URL",
         "SENSENOVA_MODEL",
+        "DEEPSEEK_API_KEY",
+        "DEEPSEEK_API_URL",
+        "DEEPSEEK_MODEL",
         "MCP_MAX_CONTEXT_CHARS",
         "MCP_MAX_TOKENS",
     ]:
@@ -235,6 +238,55 @@ def test_sensenova_model_override():
     config_module.validate_settings(settings)
 
     assert settings.default_model == "sensenova-6.7-flash-lite"
+
+
+def test_deepseek_defaults():
+    os.environ["PROVIDER"] = "deepseek"
+    os.environ["DEEPSEEK_API_KEY"] = "ds-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.provider == "deepseek"
+    assert settings.mode == "http"
+    assert settings.api_url == "https://api.deepseek.com/chat/completions"
+    assert settings.default_model == "deepseek-v4-pro"
+    assert settings.max_context_chars == 96000
+    assert settings.max_tokens == 8192
+    assert settings.api_password == "ds-key"
+
+
+def test_deepseek_uses_generic_api_key():
+    os.environ["PROVIDER"] = "deepseek"
+    os.environ["API_KEY"] = "generic-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_deepseek_api_key_takes_precedence_over_specific():
+    # Lock first-match-wins semantics: API_KEY wins when both are set.
+    os.environ["PROVIDER"] = "deepseek"
+    os.environ["API_KEY"] = "generic-key"
+    os.environ["DEEPSEEK_API_KEY"] = "ds-key"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.api_password == "generic-key"
+
+
+def test_deepseek_model_override():
+    os.environ["PROVIDER"] = "deepseek"
+    os.environ["DEEPSEEK_API_KEY"] = "ds-key"
+    os.environ["DEEPSEEK_MODEL"] = "deepseek-v4-flash"
+    reload(config_module)
+    settings = config_module.load_settings()
+    config_module.validate_settings(settings)
+
+    assert settings.default_model == "deepseek-v4-flash"
 
 
 def test_coding_uses_generic_api_key():
